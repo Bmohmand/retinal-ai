@@ -40,7 +40,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from typing import Optional, Tuple
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}
@@ -95,6 +95,12 @@ class CropConfig:
 
     # Output size of the final square crop in pixels.
     output_size: int = 512
+
+    # Apply a circular mask to the output, simulating the circular FOV
+    # of a real fundus camera. Without this, the square crop captures
+    # ~63° along the diagonals (45° × √2), leaking extra peripheral info.
+    # Recommended: True for controlled FOV comparisons.
+    circular_mask: bool = True
 
     # JPEG quality for output (0-100).
     jpeg_quality: int = 95
@@ -380,6 +386,15 @@ def synthetic_crop(
         cropped, (cfg.output_size, cfg.output_size),
         interpolation=cv2.INTER_AREA,
     )
+
+    # Apply circular mask to simulate real fundus camera FOV
+    if cfg.circular_mask:
+        mask = np.zeros((cfg.output_size, cfg.output_size), dtype=np.uint8)
+        center = cfg.output_size // 2
+        radius = cfg.output_size // 2
+        cv2.circle(mask, (center, center), radius, 255, -1)
+        result = cv2.bitwise_and(result, result, mask=mask)
+
     return result
 
 
@@ -415,15 +430,18 @@ def save_debug_overlay(
         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2,
     )
 
-    # Crop box (yellow rectangle)
+    # Crop region (yellow)
     crop_fraction = cfg.target_fov_degrees / cfg.uwf_fov_degrees
     crop_radius = int((crop_fraction * fov_diameter) / 2)
-    cv2.rectangle(
-        vis,
-        (mac_x - crop_radius, mac_y - crop_radius),
-        (mac_x + crop_radius, mac_y + crop_radius),
-        (0, 255, 255), 3,
-    )
+    if cfg.circular_mask:
+        cv2.circle(vis, (mac_x, mac_y), crop_radius, (0, 255, 255), 3)
+    else:
+        cv2.rectangle(
+            vis,
+            (mac_x - crop_radius, mac_y - crop_radius),
+            (mac_x + crop_radius, mac_y + crop_radius),
+            (0, 255, 255), 3,
+        )
 
     # Laterality label
     cv2.putText(
@@ -483,13 +501,33 @@ def crop_single(
         h, w = image.shape[:2]
         fov_diameter = max(w, h)
 
-        # Build FOV mask
-        mask = build_fov_mask(image, cfg)
+        # --- OPTIMIZATION ---
+        # Perform detection on a downscaled image to drastically speed up
+        # large morphological operations (erosion) and Gaussian blurs.
+        detect_size = 512
+        scale = 1.0
+        detect_img = image
+        detect_cfg = cfg
 
-        # Detect optic disc
-        od_x, od_y, od_conf = find_optic_disc(image, mask, cfg)
+        if fov_diameter > detect_size:
+            scale = detect_size / fov_diameter
+            dw, dh = int(w * scale), int(h * scale)
+            detect_img = cv2.resize(image, (dw, dh), interpolation=cv2.INTER_AREA)
+            
+            # Scale kernels down so detection behavior remains consistent
+            new_blur = max(3, int(cfg.od_blur_ksize * scale) | 1)
+            new_morph = max(3, int(cfg.morph_kernel_size * scale) | 1)
+            detect_cfg = replace(cfg, od_blur_ksize=new_blur, morph_kernel_size=new_morph)
 
-        # Estimate macula
+        # Run detection on (potentially) smaller image
+        mask_small = build_fov_mask(detect_img, detect_cfg)
+        od_x_small, od_y_small, od_conf = find_optic_disc(detect_img, mask_small, detect_cfg)
+
+        # Scale coordinates back to original resolution
+        od_x = int(od_x_small / scale)
+        od_y = int(od_y_small / scale)
+
+        # Estimate macula (using original image dimensions)
         mac_x, mac_y, laterality = estimate_macula_center(
             image, od_x, od_y, cfg
         )
@@ -682,6 +720,10 @@ def main():
                         help="Color channel for OD detection (default: red)")
     parser.add_argument("--jpeg_quality", type=int, default=95,
                         help="JPEG output quality, 0-100 (default: 95)")
+    parser.add_argument("--no_circular_mask", action="store_true",
+                        help="Output square crops instead of circular. "
+                             "Not recommended: square crops capture ~63° along "
+                             "diagonals, leaking extra peripheral information.")
 
     args = parser.parse_args()
 
@@ -691,6 +733,7 @@ def main():
         output_size=args.output_size,
         od_channel=args.od_channel,
         jpeg_quality=args.jpeg_quality,
+        circular_mask=not args.no_circular_mask,
     )
 
     if args.input:

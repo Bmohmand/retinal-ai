@@ -175,7 +175,9 @@ def load_labels_from_csv(csv_path: str) -> Dict[str, str]:
     """
     labels = {}
     with open(csv_path, "r") as f:
-        header = f.readline().strip().split(",")
+        header_line = f.readline()
+        delimiter = "\t" if "\t" in header_line else ","
+        header = header_line.strip().split(delimiter)
         header_lower = [h.strip().lower().strip('"') for h in header]
 
         file_col = 0
@@ -191,7 +193,7 @@ def load_labels_from_csv(csv_path: str) -> Dict[str, str]:
                 break
 
         for line in f:
-            parts = line.strip().split(",")
+            parts = line.strip().split(delimiter)
             if len(parts) > max(file_col, label_col):
                 fname = parts[file_col].strip().strip('"')
                 label = parts[label_col].strip().strip('"')

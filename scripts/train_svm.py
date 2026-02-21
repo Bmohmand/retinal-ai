@@ -25,7 +25,11 @@ def load_labels(labels_path: Path) -> pd.DataFrame:
     if not labels_path.exists():
         print(f"labels.csv not found at {labels_path}; skipping SVM training.")
         return pd.DataFrame()
-    df = pd.read_csv(labels_path)
+
+    # Auto-detect separator (tab or comma) and normalize column names
+    df = pd.read_csv(labels_path, sep=None, engine="python")
+    df = df.rename(columns={"name": "image_path", "filename": "image_path", "label": "class"})
+
     if "image_path" not in df.columns or "class" not in df.columns:
         raise ValueError("labels.csv must have columns: image_path,class")
     return df[["image_path", "class"]]
