@@ -574,13 +574,14 @@ def batch_crop(
     debug: bool = False,
     center_on: str = "macula",
 ) -> list:
-    """Crop all standardized images in a directory."""
-    os.makedirs(output_dir, exist_ok=True)
-    debug_dir = os.path.join(output_dir, "_debug") if debug else None
+    """Crop all standardized images in a directory (recursively)."""
+    input_path = Path(input_dir)
+    output_path = Path(output_dir)
 
+    print(f"Scanning for images in {input_dir}...")
     files = sorted(
-        f for f in Path(input_dir).iterdir()
-        if f.suffix.lower() in IMAGE_EXTENSIONS
+        f for f in input_path.rglob("*")
+        if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
     )
 
     if not files:
@@ -591,10 +592,18 @@ def batch_crop(
     low_conf = []
 
     for i, fpath in enumerate(files, 1):
-        out_path = os.path.join(output_dir, fpath.name)
-        print(f"[{i}/{len(files)}] {fpath.name}...", end=" ")
+        rel_path = fpath.relative_to(input_path)
+        dest_path = output_path / rel_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-        result = crop_single(str(fpath), out_path, cfg, debug_dir, center_on)
+        # Preserve structure in debug folder if enabled
+        current_debug_dir = None
+        if debug:
+            current_debug_dir = str(output_path / "_debug" / rel_path.parent)
+
+        print(f"[{i}/{len(files)}] {rel_path}...", end=" ", flush=True)
+
+        result = crop_single(str(fpath), str(dest_path), cfg, current_debug_dir, center_on)
 
         if result.success:
             conf_marker = ""

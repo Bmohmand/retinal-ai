@@ -271,12 +271,13 @@ def batch_preprocess(
     output_dir: str,
     cfg: PreprocessConfig,
 ) -> list:
-    """Preprocess all images in a directory."""
-    os.makedirs(output_dir, exist_ok=True)
+    """Preprocess all images in a directory (recursively)."""
+    input_path = Path(input_dir)
+    output_path = Path(output_dir)
 
     files = sorted(
-        f for f in Path(input_dir).iterdir()
-        if f.suffix.lower() in IMAGE_EXTENSIONS
+        f for f in input_path.rglob("*")
+        if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
     )
 
     if not files:
@@ -285,10 +286,13 @@ def batch_preprocess(
 
     results = []
     for i, fpath in enumerate(files, 1):
-        out_path = os.path.join(output_dir, fpath.name)
-        print(f"[{i}/{len(files)}] {fpath.name}...", end=" ")
+        rel_path = fpath.relative_to(input_path)
+        dest_path = output_path / rel_path
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
 
-        result = preprocess_single(str(fpath), out_path, cfg)
+        print(f"[{i}/{len(files)}] {rel_path}...", end=" ")
+
+        result = preprocess_single(str(fpath), str(dest_path), cfg)
 
         if result.success:
             ow, oh = result.original_size
