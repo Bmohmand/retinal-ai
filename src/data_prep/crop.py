@@ -73,7 +73,9 @@ def process(config: CropConfig) -> Tuple[int, List[str]]:
 
         dst_path = out_img_dir / src_path.name
         cropped.save(dst_path)
-        rows.append((dst_path.as_posix(), row["class"]))
+        # Store path relative to the dataset root for portability
+        rel_path = dst_path.relative_to(config.dst_root)
+        rows.append((rel_path.as_posix(), row["class"]))
 
     if rows:
         labels_out = config.dst_root / config.labels_name
