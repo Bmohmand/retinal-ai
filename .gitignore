@@ -205,3 +205,10 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+~$Demographics of the participants.xlsx
+~$Ground Truth.xlsx
+~$Individual Quality Assessment.xlsx
+
+# Local dataset
+local_data/
+.vscode
