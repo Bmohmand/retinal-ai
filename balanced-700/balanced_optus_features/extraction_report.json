@@ -1,0 +1,31 @@
+{
+  "input_dir": "smaller_data/uwf_images",
+  "total_images": 700,
+  "successful": 700,
+  "failed": 0,
+  "color_histogram_features": 192,
+  "hog_vector_length": 8100,
+  "hog_skipped": false,
+  "hist_bins_per_channel": 32,
+  "hog_resize": 256,
+  "labels_provided": true,
+  "unique_labels": [
+    "AMD",
+    "DR",
+    "Healthy",
+    "PM",
+    "RD",
+    "RVO",
+    "Uveitis"
+  ],
+  "label_counts": {
+    "AMD": 100,
+    "DR": 100,
+    "Healthy": 100,
+    "PM": 100,
+    "RD": 100,
+    "RVO": 100,
+    "Uveitis": 100
+  },
+  "failures": []
+}

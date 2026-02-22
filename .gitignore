@@ -211,4 +211,5 @@ __marimo__/
 
 # Local dataset
 local_data/
+smaller_data/
 .vscode

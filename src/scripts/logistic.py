@@ -70,13 +70,13 @@ def train_model(X, y):
     plt.plot([0, 1], [0, 1], 'k--')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('Logistic ROC Curves for Retinal Classification')
+    plt.title('Logistic ROC Curves for Retinal Classification - Fundus')
     plt.legend(loc='lower right')
     plt.savefig("logistic.png")
 
 
 if __name__ == "__main__":
-    features_dir = r"e:\retinal-ai\fundus_features"
+    features_dir = r"e:\retinal-ai\balanced-700\balanced_fundus_features"
 
     X, y = load_features(features_dir)
     print(f"Loaded Data {X.shape[0]} images, {X.shape[1]} features\n")
