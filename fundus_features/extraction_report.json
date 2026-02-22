@@ -1,0 +1,29 @@
+{
+  "input_dir": "local_data/cropped_uwf_images",
+  "total_images": 2031,
+  "successful": 2031,
+  "failed": 0,
+  "color_histogram_features": 192,
+  "hog_vector_length": 8100,
+  "hog_skipped": false,
+  "hist_bins_per_channel": 32,
+  "hog_resize": 256,
+  "labels_provided": true,
+  "unique_labels": [
+    "choroidal_hemangioma",
+    "choroidal_osteoma",
+    "normal",
+    "retinal_capillary_hemangioma",
+    "retinoblastoma",
+    "uveal_melanoma"
+  ],
+  "label_counts": {
+    "choroidal_hemangioma": 71,
+    "choroidal_osteoma": 80,
+    "normal": 1354,
+    "retinal_capillary_hemangioma": 186,
+    "retinoblastoma": 255,
+    "uveal_melanoma": 85
+  },
+  "failures": []
+}

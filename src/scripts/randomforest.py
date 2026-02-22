@@ -81,7 +81,7 @@ def train_model(X, y):
 
 
 if __name__ == "__main__":
-    features_dir = r"e:\retinal-ai\feature_extractions"
+    features_dir = r"e:\retinal-ai\optus_features"
 
     X, y = load_features(features_dir)
     print(f"Loaded Data {X.shape[0]} images, {X.shape[1]} features\n")
