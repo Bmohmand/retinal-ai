@@ -25,9 +25,10 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 @dataclass
 class TrainingConfig:
     """Configuration for the training script."""
-    data_dir: Path = Path(r"C:\retinal-ai\uwf_images")
+    data_dir: Path = Path(r"C:\retinal-ai\cropped_uwf_images")
+    name: str = "45deg"
     n_splits: int = 5
-    batch_size: int = 32
+    batch_size: int = 64
     num_workers: int = 0
     seed: int = 42
     epochs: int = 30 
@@ -177,6 +178,7 @@ def quick_validate(model, loader):
 
     return np.array(all_labels), np.array(all_preds)
 
+# Optimize Learning rate with transfer learning architecture
 def build_scheduler(optimizer, epochs, warmup_epochs=3):
     warmup = optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs,
@@ -203,7 +205,7 @@ def run_fold(fold: int, train_loader: DataLoader, val_loader: DataLoader, cfg: T
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=cfg.learning_rate)
     scheduler = build_scheduler(optimizer, cfg.epochs)
 
-    best_f1 = -1.0 # Initialize with a value that will always be beaten
+    best_f1 = -1.0
     best_model_state = None
     patience_counter = 0
 
@@ -246,7 +248,8 @@ def main():
     full_dataset = datasets.ImageFolder(cfg.data_dir)
     num_classes = len(full_dataset.classes)
     print(f"Found {len(full_dataset)} images belonging to {num_classes} classes.")
-
+     
+    # Load images into memory for speed
     print("Preloading images into memory...")
     preloaded_images = []
     preloaded_labels = []
@@ -256,6 +259,7 @@ def main():
         preloaded_images.append(img)
         preloaded_labels.append(label)
 
+    # Run KFold validation
     skf = StratifiedKFold(n_splits=cfg.n_splits, shuffle=True, random_state=cfg.seed)
     targets = np.array(full_dataset.targets)
 
@@ -265,7 +269,7 @@ def main():
             preloaded_images, preloaded_labels, train_idx, val_idx, cfg
         )
 
-        fold_results = run_fold(fold, train_loader, val_loader, cfg) # Pass num_classes and cfg
+        fold_results = run_fold(fold, train_loader, val_loader, cfg) 
         if fold_results:
             all_fold_results.append(fold_results)
 
@@ -281,7 +285,13 @@ def main():
     # Classification report
     print(f"Accuracy: {accuracy_score(all_labels, all_preds):.4f}")
     print(f"F1 (macro): {f1_score(all_labels, all_preds, average='macro'):.4f}\n")
-    print(classification_report(all_labels, all_preds, target_names=full_dataset.classes, zero_division=0))
+    report = classification_report(all_labels, all_preds, target_names=full_dataset.classes, zero_division=0)
+    print(report)
+    with open(f"classification_report_{cfg.name}.txt", "w") as f:
+        f.write(f"Accuracy: {accuracy_score(all_labels, all_preds):.4f}\n")
+        f.write(f"F1 (macro): {f1_score(all_labels, all_preds, average='macro'):.4f}\n\n")
+        f.write(report)
+
 
     # ROC curves
     classes = np.arange(len(full_dataset.classes))
@@ -295,10 +305,10 @@ def main():
     plt.plot([0, 1], [0, 1], "k--", alpha=0.5)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("ROC Curves — EfficientNet-B0 (Cross-Validated)")
+    plt.title(f"ROC Curves — EfficientNet-B0 {cfg.name} (Cross-Validated)")
     plt.legend(loc="lower right", fontsize=9)
     plt.tight_layout()
-    plt.savefig("roc_cnn.png", dpi=150)
+    plt.savefig(f"roc_cnn_{cfg.name}.png", dpi=150)
 
     # Save best model for further analysis
     best_fold = max(all_fold_results, key=lambda r: r["best_f1"])
@@ -307,7 +317,7 @@ def main():
         "class_names": full_dataset.classes,
         "num_classes": len(full_dataset.classes),
         "image_size": 224,
-    }, "best_model.pth")
+    }, f"best_model_{cfg.name}.pth")
 
 
 if __name__ == "__main__":
