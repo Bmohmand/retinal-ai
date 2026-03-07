@@ -39,22 +39,8 @@ import sys
 import warnings
 from pathlib import Path
 from typing import Optional, Dict
-
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
-    warnings.warn("pandas not installed. Install with: pip install pandas")
-
-try:
-    from skimage.feature import hog as skimage_hog
-    HAS_SKIMAGE = True
-except ImportError:
-    HAS_SKIMAGE = False
-    warnings.warn(
-        "scikit-image not installed. HOG will be unavailable. "
-        "Install with: pip install scikit-image"
-    )
+import pandas as pd
+from skimage.feature import hog as skimage_hog
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}
 
@@ -147,9 +133,6 @@ def extract_hog_features(image: np.ndarray) -> Optional[np.ndarray]:
 
     Returns 1D float32 array (~8,100 features at 256x256 with default params).
     """
-    if not HAS_SKIMAGE:
-        return None
-
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     resized = cv2.resize(gray, (HOG_RESIZE, HOG_RESIZE))
 
