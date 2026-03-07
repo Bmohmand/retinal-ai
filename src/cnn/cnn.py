@@ -14,6 +14,9 @@ from torchvision import models, datasets, transforms
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import label_binarize
 
+# Define the resize transform for preloading images
+resize = transforms.Resize((224, 224))
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # model = models.efficientnet_b0(weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1)
@@ -25,11 +28,11 @@ class TrainingConfig:
     data_dir: Path = Path(r"C:\retinal-ai\uwf_images")
     n_splits: int = 5
     batch_size: int = 32
-    num_workers: int = 4
+    num_workers: int = 0
     seed: int = 42
     epochs: int = 30 
-    learning_rate: float = 1e-5 
-    patience: int = 7 
+    learning_rate: float = 1e-3 
+    patience: int = 8 
 
 
 # Create Model
@@ -88,7 +91,6 @@ class InMemoryDataset(torch.utils.data.Dataset):
 def get_transforms():
     """Defines the training and validation transforms."""
     train_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
         transforms.RandomRotation(30),
@@ -100,7 +102,6 @@ def get_transforms():
     ])
 
     val_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet Normalization
     ])
@@ -146,6 +147,7 @@ def train_epoch(model, loader, criterion, optimizer):
 
     return curr_loss / total, correct / total
 
+
 @torch.no_grad()
 def evaluate(model, loader):
     model.eval()
@@ -161,6 +163,19 @@ def evaluate(model, loader):
         all_probs.extend(probs.cpu().numpy())
 
     return np.array(all_labels), np.array(all_preds), np.array(all_probs)
+
+@torch.no_grad()
+def quick_validate(model, loader):
+    model.eval()
+    all_labels, all_preds = [], []
+
+    for images, labels in loader:
+        images = images.to(DEVICE)
+        preds = model(images).argmax(1).cpu().numpy()
+        all_labels.extend(labels.numpy())
+        all_preds.extend(preds)
+
+    return np.array(all_labels), np.array(all_preds)
 
 def build_scheduler(optimizer, epochs, warmup_epochs=3):
     warmup = optim.lr_scheduler.LinearLR(
@@ -196,7 +211,7 @@ def run_fold(fold: int, train_loader: DataLoader, val_loader: DataLoader, cfg: T
         train_loss, train_acc = train_epoch(model, train_loader, criterion, optimizer)
         scheduler.step()
 
-        val_labels, val_preds, _ = evaluate(model, val_loader)
+        val_labels, val_preds = quick_validate(model, val_loader)
         val_acc = accuracy_score(val_labels, val_preds)
         val_f1 = f1_score(val_labels, val_preds, average="macro")
 
@@ -233,12 +248,13 @@ def main():
     print(f"Found {len(full_dataset)} images belonging to {num_classes} classes.")
 
     print("Preloading images into memory...")
-    all_images = []
-    all_labels = []
+    preloaded_images = []
+    preloaded_labels = []
     for i in tqdm(range(len(full_dataset))):
         img, label = full_dataset[i]
-        all_images.append(img)
-        all_labels.append(label)
+        img = resize(img)
+        preloaded_images.append(img)
+        preloaded_labels.append(label)
 
     skf = StratifiedKFold(n_splits=cfg.n_splits, shuffle=True, random_state=cfg.seed)
     targets = np.array(full_dataset.targets)
@@ -246,7 +262,7 @@ def main():
     all_fold_results = []
     for fold, (train_idx, val_idx) in enumerate(skf.split(np.arange(len(targets)), targets)):
         train_loader, val_loader = get_dataloaders(
-            full_dataset, train_idx, val_idx, cfg
+            preloaded_images, preloaded_labels, train_idx, val_idx, cfg
         )
 
         fold_results = run_fold(fold, train_loader, val_loader, cfg) # Pass num_classes and cfg
