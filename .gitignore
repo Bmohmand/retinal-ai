@@ -213,3 +213,4 @@ __marimo__/
 local_data/
 smaller_data/
 .vscode
+gradcam_overlays/
