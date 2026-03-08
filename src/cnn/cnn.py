@@ -25,8 +25,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 @dataclass
 class TrainingConfig:
     """Configuration for the training script."""
-    data_dir: Path = Path(r"C:\retinal-ai\cropped_uwf_images")
-    name: str = "45deg"
+    data_dir: Path = Path(r"C:\retinal-ai\uwf_images")
+    name: str = "200deg"
     n_splits: int = 5
     batch_size: int = 64
     num_workers: int = 0

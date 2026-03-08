@@ -1,0 +1,16 @@
+Accuracy: 0.7200
+F1 (macro): 0.7206
+
+              precision    recall  f1-score   support
+
+         AMD       0.82      0.79      0.81       100
+          DR       0.82      0.80      0.81       100
+     Healthy       0.60      0.68      0.64       100
+          PM       0.81      0.87      0.84       100
+          RD       0.66      0.59      0.62       100
+         RVO       0.82      0.77      0.79       100
+     Uveitis       0.52      0.54      0.53       100
+
+    accuracy                           0.72       700
+   macro avg       0.72      0.72      0.72       700
+weighted avg       0.72      0.72      0.72       700
