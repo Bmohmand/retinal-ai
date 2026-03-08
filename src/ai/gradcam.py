@@ -94,7 +94,7 @@ def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=
     h, w = heatmap.shape
     cx, cy = w // 2, h // 2
 
-    # Compute zone radii (same logic as compute_attention_zones)
+    # Compute zone radii
     gray = np.mean(raw_image_np, axis=2)
     fov_mask = gray > 0.08
     Y, X = np.ogrid[:h, :w]
@@ -112,9 +112,11 @@ def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=
     # Draw zone boundaries on heatmap
     zone_colors = ["white", "cyan", "yellow", "red"]
     zone_labels = ["45°", "P1", "P2", "P3"]
+
     # Fundus 45° boundary
     axes[1].add_patch(plt.Circle((cx, cy), fundus_radius,
                       fill=False, color=zone_colors[0], linewidth=1.5, linestyle="--"))
+    
     # Peripheral ring boundaries
     for ring in range(n_peripheral_rings):
         r = fundus_radius + (ring + 1) * peripheral_width
