@@ -140,32 +140,18 @@ def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close()
 
-def main():
-    # Define paths as variables
-    model_file_path = "best_model_200deg.pth"
-    data_root_path = r"C:\retinal-ai\uwf_images"
-    overlay_output_dir = "enhanced_overlays"
-    
-    # Ensure the overlay directory exists
-    os.makedirs(overlay_output_dir, exist_ok=True)
 
-    model, class_names = load_model(model_file_path)
+def run_gradcam(model, class_names, dataset, resize, val_transform, raw_transform,
+                 overlay_output_dir=None, label=""):
+    """
+    Run GradCAM analysis on the full dataset and return per-class stats.
+    Only saves overlays if overlay_output_dir is provided.
+    """
     cam = GradCAM(model=model, target_layers=[model.features[-1]])
-
-    dataset = datasets.ImageFolder(data_root_path)
-    resize = transforms.Resize((224, 224))
-    val_transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ])
-    raw_transform = transforms.Compose([
-        transforms.ToTensor(),  # Just [0, 1] RGB, no normalization
-    ])
-
     class_stats = defaultdict(list)
 
-    for i in tqdm(range(len(dataset))):
-        pil_img, label = dataset[i]
+    for i in tqdm(range(len(dataset)), desc=label):
+        pil_img, lbl = dataset[i]
         pil_img = resize(pil_img)
 
         input_tensor = val_transform(pil_img).unsqueeze(0).to(DEVICE)
@@ -173,30 +159,40 @@ def main():
 
         heatmap = cam(input_tensor=input_tensor)[0]
 
-        # Spatial analysis
         zones = attention_zones(heatmap, raw_np)
+        if not zones:
+            continue
 
-        # Get prediction
         with torch.no_grad():
             pred = model(input_tensor).argmax(1).item()
 
         result = {
             **zones,
-            "correct": pred == label,
-            "true_class": class_names[label],
+            "correct": pred == lbl,
+            "true_class": class_names[lbl],
             "pred_class": class_names[pred],
         }
-        class_stats[class_names[label]].append(result)
+        class_stats[class_names[lbl]].append(result)
 
         # Save overlays for a few examples per class
-        saved_count = sum(1 for r in class_stats[class_names[label]] if r.get("saved"))
-        if saved_count < 3:
-            result["saved"] = True
-            save_filename = f"{class_names[label]}_{i}.png"
-            title = f"True: {class_names[label]} | Pred: {class_names[pred]}"
-            save_overlay(raw_np, heatmap, Path(overlay_output_dir) / save_filename, title)
+        if overlay_output_dir:
+            saved_count = sum(1 for r in class_stats[class_names[lbl]] if r.get("saved"))
+            if saved_count < 3:
+                result["saved"] = True
+                save_filename = f"{class_names[lbl]}_{i}.png"
+                title = f"True: {class_names[lbl]} | Pred: {class_names[pred]}"
+                save_overlay(raw_np, heatmap, Path(overlay_output_dir) / save_filename, title)
 
-    # Print percentage table
+    return class_stats
+
+
+def print_tables(class_stats, class_names, label=""):
+    """Print percentage and density tables."""
+    if label:
+        print(f"\n{'=' * 64}")
+        print(f"  {label}")
+        print(f"{'=' * 64}")
+
     zone_keys = ["fundus_45", "periph_1", "periph_2", "periph_3", "artifact"]
     print(f"\n{'=== Attention Distribution (% of FOV attention) ===':}")
     print(f"{'Class':<12}{'fundus_45':>12}{'periph_1':>10}{'periph_2':>10}{'periph_3':>10}{'artifact':>10}")
@@ -211,7 +207,6 @@ def main():
             row += f"{val:>10.1%}"
         print(row)
 
-    # Print density table
     density_keys = ["fundus_45_density", "periph_1_density", "periph_2_density", "periph_3_density"]
     print(f"\n{'=== Attention Density (1.0 = uniform, >1.0 = disproportionate) ===':}")
     print(f"{'Class':<12}{'fundus_45':>12}{'periph_1':>10}{'periph_2':>10}{'periph_3':>10}")
@@ -226,6 +221,56 @@ def main():
             row += f"{val:>10.2f}"
         print(row)
 
+def main():
+    # Define paths as variables
+    model_file_path = "best_model_200deg.pth"
+    data_root_path = r"C:\retinal-ai\uwf_images"
+    overlay_output_dir = "enhanced_overlays"
+    
+    # Ensure the overlay directory exists
+    os.makedirs(overlay_output_dir, exist_ok=True)
+
+    model, class_names = load_model(model_file_path)
+    dataset = datasets.ImageFolder(data_root_path)
+    resize = transforms.Resize((224, 224))
+    val_transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ])
+    raw_transform = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+
+    # Run Gradcam on data
+    trained_stats = run_gradcam(
+        model, class_names, dataset, resize, val_transform, raw_transform,
+        overlay_output_dir=overlay_output_dir, label="Trained model",
+    )
+    print_tables(trained_stats, class_names, label="TRAINED MODEL")
+
+    # SANITY CHECK
+    print("\n\nRunning sanity check (randomized classifier)...")
+    sanity_model, _ = load_model(model_file_path)
+    nn.init.normal_(sanity_model.classifier[1].weight, mean=0.0, std=0.01)
+    nn.init.zeros_(sanity_model.classifier[1].bias)
+
+    sanity_stats = run_gradcam(
+        sanity_model, class_names, dataset, resize, val_transform, raw_transform,
+        overlay_output_dir=None, label="Sanity check", 
+    )
+    print_tables(sanity_stats, class_names, label="SANITY CHECK (randomized classifier)")
+
+    # Compare random with actual gradcam
+    print(f"\n{'=' * 64}")
+    print(f"  SANITY CHECK COMPARISON (fundus_45 density)")
+    print(f"{'=' * 64}")
+    print(f"{'Class':<12}{'Trained':>10}{'Random':>10}{'Diff':>10}")
+    print("-" * 42)
+    for cls in class_names:
+        trained_d = np.mean([s.get("fundus_45_density", 0) for s in trained_stats[cls]])
+        sanity_d = np.mean([s.get("fundus_45_density", 0) for s in sanity_stats[cls]])
+        diff = trained_d - sanity_d
+        print(f"{cls:<12}{trained_d:>10.2f}{sanity_d:>10.2f}{diff:>+10.2f}")
 
 if __name__ == "__main__":
     main()
