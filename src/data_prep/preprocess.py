@@ -7,22 +7,6 @@ images (no borders) and zoomed-out images (heavy black padding) identically.
 
 Output: A directory of standardized images where every image has the FOV
         tightly cropped, plus a metadata JSON recording what was done.
-
-Requirements:
-    pip install opencv-python-headless numpy
-
-Usage:
-    # Batch process (most common)
-    python 1_preprocess.py --input_dir ./raw_images --output_dir ./standardized
-
-    # Single image
-    python 1_preprocess.py --input image_0001.jpg --output std_0001.jpg
-
-    # Adjust threshold if faint sensor glow is included or real retina is clipped
-    python 1_preprocess.py --input_dir ./raw --output_dir ./std --threshold 20
-
-    # Resize all standardized outputs to a uniform dimension
-    python 1_preprocess.py --input_dir ./raw --output_dir ./std --resize 2048
 """
 
 import cv2

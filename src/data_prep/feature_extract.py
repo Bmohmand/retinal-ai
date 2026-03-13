@@ -15,19 +15,6 @@ Output:
   - features.csv      — Color histograms (compact, human-readable)
   - hog_features.npz  — HOG vectors (high-dimensional, compressed)
   - extraction_report.json — Summary stats
-
-Requirements:
-    pip install opencv-python-headless numpy scikit-image pandas
-
-Usage:
-    # Extract from full 200° standardized images
-    python 3_extract_features.py --input_dir ./standardized --output_dir ./features_200deg --label_csv labels.csv
-
-    # Extract from 45° synthetic crops
-    python 3_extract_features.py --input_dir ./cropped_45deg --output_dir ./features_45deg --label_csv labels.csv
-
-    # Skip HOG (faster iteration on color features only)
-    python 3_extract_features.py --input_dir ./cropped_45deg --output_dir ./features_45deg --label_csv labels.csv --skip_hog
 """
 
 import cv2

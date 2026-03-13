@@ -303,10 +303,12 @@ def main():
         plt.plot(fpr, tpr, label=f"{name} (AUC = {auc(fpr, tpr):.2f})", linewidth=2)
 
     plt.plot([0, 1], [0, 1], "k--", alpha=0.5)
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(f"ROC Curves — EfficientNet-B0 {cfg.name} (Cross-Validated)")
-    plt.legend(loc="lower right", fontsize=9)
+    plt.xlabel("False Positive Rate", fontsize=14)
+    plt.ylabel("True Positive Rate", fontsize=14)
+    plt.title(f"ROC Curves — EfficientNet-B0 {cfg.name} (Cross-Validated)", fontsize=16)
+    plt.legend(loc="lower right", fontsize=12)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
     plt.tight_layout()
     plt.savefig(f"roc_cnn_{cfg.name}.png", dpi=150)
 

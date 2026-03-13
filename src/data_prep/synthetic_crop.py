@@ -12,25 +12,6 @@ Pipeline per image:
   4. Extract a square crop representing the target FOV
 
 Output: A directory of 45° crops + metadata JSON with detection coordinates.
-
-Requirements:
-    pip install opencv-python-headless numpy
-
-Usage:
-    # Standard workflow (run after 1_preprocess.py)
-    python 2_synthetic_crop.py --input_dir ./standardized --output_dir ./cropped_45deg
-
-    # With debug overlays to QA optic disc detection
-    python 2_synthetic_crop.py --input_dir ./standardized --output_dir ./cropped_45deg --debug
-
-    # Center on the optic disc instead of estimated macula
-    python 2_synthetic_crop.py --input_dir ./standardized --output_dir ./cropped_45deg --center_on optic_disc
-
-    # For Clarus images (133° FOV instead of Optos 200°)
-    python 2_synthetic_crop.py --input_dir ./standardized --output_dir ./cropped_45deg --uwf_fov 133
-
-    # Single image
-    python 2_synthetic_crop.py --input std_0001.jpg --output crop_0001.jpg --debug
 """
 
 import cv2
@@ -55,60 +36,29 @@ class CropConfig:
     """Tunable parameters for optic disc detection and synthetic cropping."""
 
     # --- FOV mask (for standardized images) ---
-    # Even after preprocessing, we need a mask to exclude any residual
-    # black corners (UWF FOV is elliptical, bounding box is rectangular).
     mask_threshold: int = 15
     morph_kernel_size: int = 15
 
-    # --- Optic disc detection ---
-    # Gaussian blur kernel size (must be odd). Larger = smoother.
     od_blur_ksize: int = 51
-
-    # Preferred color channel for OD detection.
-    # 'red' saturates the disc in most UWF; 'green' gives best vessel contrast.
     od_channel: str = "red"
-
-    # Expected optic disc diameter as a fraction of the FOV diameter.
-    # Used for candidate scoring (~1.5mm disc / ~30mm FOV ≈ 0.05).
     od_diameter_fov_fraction: float = 0.05
 
-    # Fraction of FOV radius to exclude from the OD search.
-    # Masks out the outer ring where eyelid/scleral glow lives.
     peripheral_exclusion_ratio: float = 0.25
-
-    # --- Macula estimation ---
-    # Macula offset from OD in disc-diameters (temporal direction).
     macula_offset_dd: float = 2.5
 
-    # Auto-detect laterality (OD vs OS) from disc position in the image.
     auto_laterality: bool = True
-
-    # Fallback if auto-detect is off or ambiguous. 'OD' = right eye.
     default_laterality: str = "OD"
 
-    # --- Synthetic crop ---
-    # UWF field of view in degrees (Optos ~200°, Clarus ~133°).
     uwf_fov_degrees: float = 200.0
-
-    # Target synthetic crop FOV in degrees.
     target_fov_degrees: float = 45.0
 
-    # Output size of the final square crop in pixels.
     output_size: int = 512
 
     # Apply a circular mask to the output, simulating the circular FOV
-    # of a real fundus camera. Without this, the square crop captures
-    # ~63° along the diagonals (45° × √2), leaking extra peripheral info.
-    # Recommended: True for controlled FOV comparisons.
     circular_mask: bool = True
 
-    # JPEG quality for output (0-100).
     jpeg_quality: int = 95
 
-
-# ──────────────────────────────────────────────
-# FOV Mask (for standardized images)
-# ──────────────────────────────────────────────
 
 def build_fov_mask(image: np.ndarray, cfg: CropConfig) -> np.ndarray:
     """
@@ -130,10 +80,6 @@ def build_fov_mask(image: np.ndarray, cfg: CropConfig) -> np.ndarray:
 
     return binary
 
-
-# ──────────────────────────────────────────────
-# Optic Disc Detection
-# ──────────────────────────────────────────────
 
 def _build_central_mask(mask: np.ndarray, exclusion_ratio: float) -> np.ndarray:
     """

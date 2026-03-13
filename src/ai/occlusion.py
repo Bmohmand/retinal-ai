@@ -1,25 +1,3 @@
-"""
-Occlusion Sensitivity Analysis
-================================
-Measures the causal impact of each image zone on classification by
-masking regions to black and measuring the accuracy drop per class.
-
-Unlike GradCAM (correlational — "where does the model look?"), occlusion
-is interventional ("removing this region hurts performance by X%").
-
-Zones tested:
-  - Full image (baseline — no occlusion)
-  - Central only (mask periphery — simulates 45° fundus view)
-  - Periphery only (mask center — what does the periphery alone provide?)
-  - Ring-by-ring (mask one peripheral ring at a time)
-
-Usage:
-    python 7_occlusion.py
-
-Requirements:
-    pip install torch torchvision scikit-learn tqdm matplotlib numpy
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -35,10 +13,6 @@ from sklearn.metrics import accuracy_score, f1_score
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# ──────────────────────────────────────────────
-# Model Loading (same as gradcam.py)
-# ──────────────────────────────────────────────
-
 def load_model(model_path):
     checkpoint = torch.load(model_path, map_location=DEVICE)
     model = models.efficientnet_b0(weights=None)
@@ -52,9 +26,6 @@ def load_model(model_path):
     return model, checkpoint["class_names"]
 
 
-# ──────────────────────────────────────────────
-# Zone Mask Generation
-# ──────────────────────────────────────────────
 
 def compute_fov_radius(raw_image_np):
     """Estimate the retinal FOV radius from image brightness."""
@@ -76,9 +47,7 @@ def compute_fov_radius(raw_image_np):
 
 def create_zone_masks(h, w, max_fov_dist, n_peripheral_rings=3):
     """
-    Create binary masks for each zone, matching gradcam.py zone definitions.
-
-    Returns dict of zone_name -> boolean mask (h, w).
+    Create binary masks for each zone, matching gradcam zone definitions
     """
     cx, cy = w // 2, h // 2
     fundus_radius = max_fov_dist * (45 / 200)
@@ -101,18 +70,12 @@ def create_zone_masks(h, w, max_fov_dist, n_peripheral_rings=3):
 def apply_occlusion(image_tensor, mask, fill_value=0.0):
     """
     Apply occlusion by setting masked region to fill_value.
-
-    Args:
-        image_tensor: (1, C, H, W) tensor
-        mask: (H, W) boolean numpy array — True = KEEP, False = OCCLUDE
-        fill_value: What to fill occluded pixels with (0.0 = black after normalization)
     """
     occluded = image_tensor.clone()
     mask_tensor = torch.from_numpy(mask).to(image_tensor.device).unsqueeze(0).unsqueeze(0)
     mask_tensor = mask_tensor.expand_as(occluded).float()
 
-    # For normalized images, "black" in pixel space isn't 0.0 in normalized space
-    # Use the ImageNet normalization to compute actual black values per channel
+    # Replace with normalized "black" 
     mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(image_tensor.device)
     std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(image_tensor.device)
     black_normalized = (0.0 - mean) / std  # What "black" looks like after normalization
@@ -120,10 +83,6 @@ def apply_occlusion(image_tensor, mask, fill_value=0.0):
     occluded = occluded * mask_tensor + black_normalized * (1 - mask_tensor)
     return occluded
 
-
-# ──────────────────────────────────────────────
-# Evaluation
-# ──────────────────────────────────────────────
 
 @torch.no_grad()
 def evaluate_with_occlusion(model, images, labels, raw_images, occlusion_type, class_names):
@@ -150,9 +109,9 @@ def evaluate_with_occlusion(model, images, labels, raw_images, occlusion_type, c
             occluded = img_tensor
         elif occlusion_type.startswith("mask_periph_"):
             # Mask one specific peripheral ring, keep everything else
-            ring = occlusion_type  # e.g. "mask_periph_1"
-            ring_key = ring.replace("mask_", "")  # e.g. "periph_1"
-            keep_mask = ~zone_masks[ring_key]  # Invert: True = keep everything except this ring
+            ring = occlusion_type  
+            ring_key = ring.replace("mask_", "")  
+            keep_mask = ~zone_masks[ring_key] 
             occluded = apply_occlusion(img_tensor, keep_mask)
         else:
             occluded = img_tensor
@@ -168,10 +127,7 @@ def evaluate_with_occlusion(model, images, labels, raw_images, occlusion_type, c
     return np.array(all_labels), np.array(all_preds), np.array(all_correct_conf)
 
 
-# ──────────────────────────────────────────────
-# Visualization
-# ──────────────────────────────────────────────
-
+# Visualize Occlusion on test samples
 def save_occlusion_examples(images, raw_images, labels, class_names, output_dir):
     """Save example images showing each occlusion type for one image per class."""
     os.makedirs(output_dir, exist_ok=True)
@@ -220,10 +176,6 @@ def save_occlusion_examples(images, raw_images, labels, class_names, output_dir)
             break
 
 
-# ──────────────────────────────────────────────
-# Main
-# ──────────────────────────────────────────────
-
 def main():
     model_file_path = "best_model_200deg.pth"
     data_root_path = r"C:\retinal-ai\uwf_images"
@@ -245,8 +197,8 @@ def main():
 
     # Preload all images
     print("Preloading images...")
-    all_images = []      # Normalized tensors
-    all_raw = []         # Raw [0,1] numpy arrays
+    all_images = []     
+    all_raw = []         
     all_labels = []
 
     for i in tqdm(range(len(dataset)), desc="Loading"):
@@ -321,7 +273,6 @@ def main():
         row += f"{drop:>+13.1%}"
     print(row)
 
-    # ── Print mean confidence on true class ──
     print(f"\n{'=' * 90}")
     print(f"  Mean Confidence on True Class by Occlusion")
     print(f"{'=' * 90}")
