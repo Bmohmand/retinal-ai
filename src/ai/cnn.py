@@ -274,9 +274,6 @@ def main():
         f.write(f"F1 (macro): {f1_score(all_labels, all_preds, average='macro'):.4f}\n\n")
         f.write(report)
 
-<<<<<<< HEAD
-    #ROC curves
-=======
     # Confusion Matrix
     cm = confusion_matrix(all_labels, all_preds)
     plt.figure(figsize=(12, 10))
@@ -290,9 +287,7 @@ def main():
     plt.tight_layout()
     plt.savefig(f"confusion_matrix_{cfg.name}.png", dpi=150)
 
-
     # ROC curves
->>>>>>> b64215d06d2461b5f89c3fc6868f26e8734c52d1
     classes = np.arange(len(full_dataset.classes))
     y_bin = label_binarize(all_labels, classes=classes)
 
