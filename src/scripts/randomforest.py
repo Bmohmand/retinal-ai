@@ -3,13 +3,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedKFold, cross_val_predict, train_test_split
 from sklearn.metrics import (classification_report, roc_auc_score, accuracy_score, f1_score, roc_curve, auc)
 from sklearn.pipeline import Pipeline
-
 
 def load_features(dir):
     
@@ -28,7 +26,6 @@ def load_features(dir):
     X = np.hstack((X_color, X_hog))
 
     return X, y
-
 
 def train_model(X, y):
 
@@ -51,7 +48,6 @@ def train_model(X, y):
         pipeline.fit(X[train_idx], y[train_idx])
         y_pred[test_idx] = pipeline.predict(X[test_idx])
         y_score[test_idx] = pipeline.predict_proba(X[test_idx])
-
 
     #report data
     accuracy = accuracy_score(y, y_pred)
@@ -78,7 +74,6 @@ def train_model(X, y):
     plt.title('RandomForest ROC Curves for Retinal Classification - Fundus')
     plt.legend(loc='lower right')
     plt.savefig("randomforest.png")
-
 
 if __name__ == "__main__":
     features_dir = r"e:\retinal-ai\imbalanced-2031\imbalanced_fundus_features"

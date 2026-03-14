@@ -4,8 +4,6 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 from collections import defaultdict
-
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,7 +13,6 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def load_model(model_path):
     checkpoint = torch.load(model_path, map_location=DEVICE)
@@ -82,7 +79,6 @@ def attention_zones(heatmap, raw_image_np, n_peripheral_rings=3):
 
     return results
 
-
 def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=3):
     overlay = show_cam_on_image(raw_image_np, heatmap, use_rgb=True)
     h, w = heatmap.shape
@@ -139,13 +135,8 @@ def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     plt.close()
 
-
 def run_gradcam(model, class_names, dataset, resize, val_transform, raw_transform,
                  overlay_output_dir=None, label=""):
-    """
-    Run GradCAM analysis on the full dataset and return per-class stats.
-    Only saves overlays if overlay_output_dir is provided.
-    """
     cam = GradCAM(model=model, target_layers=[model.features[-1]])
     class_stats = defaultdict(list)
 
@@ -185,7 +176,6 @@ def run_gradcam(model, class_names, dataset, resize, val_transform, raw_transfor
                 save_overlay(raw_np, heatmap, Path(overlay_output_dir) / save_filename, title)
 
     return class_stats
-
 
 def print_tables(class_stats, class_names, label=""):
 
@@ -267,7 +257,7 @@ def main():
     )
     print_tables(sanity_stats, class_names, label="SANITY CHECK (randomized classifier)")
 
-    # Compare random with actual gradcam
+    #compare random with actual gradcam
     print(f"\n{'=' * 64}")
     print(f"  SANITY CHECK COMPARISON (fundus_45 density)")
     print(f"{'=' * 64}")

@@ -5,7 +5,6 @@ from pathlib import Path
 from tqdm import tqdm
 import seaborn as sns
 from dataclasses import dataclass
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,13 +14,13 @@ from torchvision import models, datasets, transforms
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import label_binarize
 
-# Define the resize transform for preloading images
+#define the resize transform for preloading images
 resize = transforms.Resize((224, 224))
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# model = models.efficientnet_b0(weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1)
+#model = models.efficientnet_b0(weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1)
 
-# Model/Training Config
+#model config
 @dataclass
 class TrainingConfig:
 
@@ -42,6 +41,7 @@ def create_model():
 
     #freeze the first 6 out of 8 feature blocks
     for i in range(6):
+
         for param in model.features[i].parameters():
             param.requires_grad = False
 
@@ -70,7 +70,7 @@ class InMemoryDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.images)
 
-# Apply Data Augmentation
+#apply data augmentation
 def get_transforms():
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
@@ -85,7 +85,8 @@ def get_transforms():
 
     val_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet Normalization
+        #normalize
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
     
     return train_transform, val_transform
@@ -105,7 +106,6 @@ def get_dataloaders(all_images, all_labels, train_idx, val_idx, cfg: TrainingCon
     val_loader = DataLoader(val_set, batch_size=cfg.batch_size, shuffle=False, num_workers=cfg.num_workers, pin_memory=True)
 
     return train_loader, val_loader
-
 
 def train_epoch(model, loader, criterion, optimizer):
     model.train()
@@ -217,7 +217,6 @@ def run_fold(fold: int, train_loader: DataLoader, val_loader: DataLoader, cfg: T
     return {"labels": labels, "preds": preds, "probs": probs,
             "best_f1": best_f1, "best_state": best_model_state}
 
-
 def main():
     cfg = TrainingConfig()
     #set Seed
@@ -315,7 +314,6 @@ def main():
         "num_classes": len(full_dataset.classes),
         "image_size": 224,
     }, f"best_model_{cfg.name}.pth")
-
 
 if __name__ == "__main__":
     main()

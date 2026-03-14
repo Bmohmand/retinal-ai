@@ -1,16 +1,13 @@
 # DONT USE THIS FILE pls
 # Pipeline goes from preprocess -> synthetic_crop -> feature_extract
 from __future__ import annotations
-
 import argparse
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Tuple
-
 import pandas as pd
 from PIL import Image
-
 
 @dataclass
 class CropConfig:
@@ -40,7 +37,6 @@ def load_labels(labels_path: Path) -> pd.DataFrame:
     
     return df[["image_path", "class"]]
 
-
 def center_square_crop(img: Image.Image, ratio: float) -> Image.Image:
     ratio = max(0.0, min(1.0, ratio))
     w, h = img.size
@@ -53,7 +49,6 @@ def center_square_crop(img: Image.Image, ratio: float) -> Image.Image:
     top = (h - side) // 2
 
     return img.crop((left, top, left + side, top + side))
-
 
 def process(config: CropConfig) -> Tuple[int, List[str]]:
     df = load_labels(config.src_root / config.labels_name)
@@ -102,7 +97,6 @@ def process(config: CropConfig) -> Tuple[int, List[str]]:
                 f.write(f"{path},{cls}\n")
 
     return len(rows), skipped
-
 
 def main(argv: Iterable[str] | None = None) -> int:
 

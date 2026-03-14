@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 from collections import defaultdict
-
 import torch
 import torch.nn as nn
 from torchvision import models, datasets, transforms
@@ -65,13 +64,13 @@ def apply_occlusion(image_tensor, mask, fill_value=0.0):
     mask_tensor = torch.from_numpy(mask).to(image_tensor.device).unsqueeze(0).unsqueeze(0)
     mask_tensor = mask_tensor.expand_as(occluded).float()
 
-    #eeplace with normalized "black" 
+    #replace with normalized "black" 
     mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(image_tensor.device)
     std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(image_tensor.device)
     black_normalized = (0.0 - mean) / std  # What "black" looks like after normalization
 
     occluded = occluded * mask_tensor + black_normalized * (1 - mask_tensor)
-    
+
     return occluded
 
 
@@ -114,10 +113,8 @@ def evaluate_with_occlusion(model, images, labels, raw_images, occlusion_type, c
 
     return np.array(all_labels), np.array(all_preds), np.array(all_correct_conf)
 
-
 #visualize Occlusion on test samples
 def save_occlusion_examples(images, raw_images, labels, class_names, output_dir):
-    """Save example images showing each occlusion type for one image per class."""
     os.makedirs(output_dir, exist_ok=True)
     saved_classes = set()
 
@@ -166,7 +163,6 @@ def save_occlusion_examples(images, raw_images, labels, class_names, output_dir)
 
         if len(saved_classes) == len(class_names):
             break
-
 
 def main():
     model_file_path = "best_model_200deg.pth"

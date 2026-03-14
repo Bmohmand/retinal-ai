@@ -37,7 +37,6 @@ class CropConfig:
 
     jpeg_quality: int = 95
 
-
 def build_fov_mask(image: np.ndarray, cfg: CropConfig) -> np.ndarray:
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -51,7 +50,6 @@ def build_fov_mask(image: np.ndarray, cfg: CropConfig) -> np.ndarray:
     binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
 
     return binary
-
 
 def _build_central_mask(mask: np.ndarray, exclusion_ratio: float) -> np.ndarray:
     #dont inlude the outer periphery.
@@ -67,7 +65,6 @@ def _build_central_mask(mask: np.ndarray, exclusion_ratio: float) -> np.ndarray:
     )
 
     return cv2.erode(mask, kernel, iterations=1)
-
 
 def _score_od_candidate(
     contour: np.ndarray,
@@ -96,7 +93,6 @@ def _score_od_candidate(
         size_score *= 0.1
 
     return circularity * 0.5 + size_score * 0.5
-
 
 def find_optic_disc(
     image: np.ndarray, mask: np.ndarray, cfg: CropConfig
@@ -319,7 +315,6 @@ def save_debug_overlay(
     )
 
     cv2.imwrite(output_path, vis)
-
 
 #results
 @dataclass
