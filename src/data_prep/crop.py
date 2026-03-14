@@ -1,4 +1,3 @@
-"""Central crop generator for converting UWF images to narrow FOV crops."""
 # DONT USE THIS FILE pls
 # Pipeline goes from preprocess -> synthetic_crop -> feature_extract
 from __future__ import annotations
@@ -15,7 +14,7 @@ from PIL import Image
 
 @dataclass
 class CropConfig:
-    
+
     src_root: Path
     dst_root: Path
     crop_deg: float = 50.0
