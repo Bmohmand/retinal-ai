@@ -35,12 +35,6 @@ def get_heatmap(cam, image_tensor):
     return grayscale_cam[0]
 
 def attention_zones(heatmap, raw_image_np, n_peripheral_rings=3):
-    """
-    Splits the heatmap into zones:
-      - fundus_45: Central region matching a 45° fundus camera FOV
-      - periph_1 to periph_N: Equal subdivisions of the peripheral retina
-      - artifact: Non-retinal regions (device frame, eyelids, black borders)
-    """
     h, w = heatmap.shape
     cx, cy = w // 2, h // 2
 
@@ -52,26 +46,27 @@ def attention_zones(heatmap, raw_image_np, n_peripheral_rings=3):
     dist = np.sqrt((X - cx)**2 + (Y - cy)**2)
 
     fov_pixels = dist[fov_mask]
+
     if len(fov_pixels) == 0:
         return {}
 
     max_fov_dist = np.percentile(fov_pixels, 95)
     fundus_radius = max_fov_dist * (45 / 200)  # 45° boundary
 
-    # Only count attention within the FOV
+    #only count attention within the FOV
     total_attention = heatmap[fov_mask].sum() + 1e-8
     total_fov_area = fov_mask.sum() + 1e-8
 
     results = {}
 
-    # Zone 0: Central 45° (what a standard fundus camera captures)
+    #zone 0: Central 45°
     central_mask = fov_mask & (dist <= fundus_radius)
     central_attn = float(heatmap[central_mask].sum() / total_attention)
     central_area_frac = float(central_mask.sum() / total_fov_area)
     results["fundus_45"] = central_attn
     results["fundus_45_density"] = central_attn / (central_area_frac + 1e-8)
 
-    # Zones 1-N: Peripheral rings (only visible in 200° image)
+    #zones 1-N: Peripheral rings
     peripheral_width = (max_fov_dist - fundus_radius) / n_peripheral_rings
     for ring in range(n_peripheral_rings):
         inner = fundus_radius + ring * peripheral_width
@@ -82,19 +77,18 @@ def attention_zones(heatmap, raw_image_np, n_peripheral_rings=3):
         results[f"periph_{ring+1}"] = ring_attn
         results[f"periph_{ring+1}_density"] = ring_attn / (ring_area_frac + 1e-8)
 
-    # Artifact: outside the retinal FOV entirely
+    #outside the retinal fov entirely
     results["artifact"] = float(heatmap[~fov_mask].sum() / (heatmap.sum() + 1e-8))
 
     return results
 
 
 def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=3):
-    """raw_image_np should be RGB float [0, 1] at 224x224."""
     overlay = show_cam_on_image(raw_image_np, heatmap, use_rgb=True)
     h, w = heatmap.shape
     cx, cy = w // 2, h // 2
 
-    # Compute zone radii
+    #compute zone radii
     gray = np.mean(raw_image_np, axis=2)
     fov_mask = gray > 0.08
     Y, X = np.ogrid[:h, :w]
@@ -109,15 +103,16 @@ def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=
     axes[0].set_title("Original")
 
     axes[1].imshow(heatmap, cmap="jet")
-    # Draw zone boundaries on heatmap
+
+    #draw zone boundaries on heatmap
     zone_colors = ["white", "cyan", "yellow", "red"]
     zone_labels = ["45°", "P1", "P2", "P3"]
 
-    # Fundus 45° boundary
+    #fundus 45 degree boundary
     axes[1].add_patch(plt.Circle((cx, cy), fundus_radius,
                       fill=False, color=zone_colors[0], linewidth=1.5, linestyle="--"))
     
-    # Peripheral ring boundaries
+    #peripheral ring boundaries
     for ring in range(n_peripheral_rings):
         r = fundus_radius + (ring + 1) * peripheral_width
         axes[1].add_patch(plt.Circle((cx, cy), r,
@@ -125,9 +120,10 @@ def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=
     axes[1].set_title("GradCAM")
 
     axes[2].imshow(overlay)
-    # Draw same boundaries on overlay
+    #draw same boundaries on overlay
     axes[2].add_patch(plt.Circle((cx, cy), fundus_radius,
                       fill=False, color="white", linewidth=1.5, linestyle="--"))
+    
     for ring in range(n_peripheral_rings):
         r = fundus_radius + (ring + 1) * peripheral_width
         axes[2].add_patch(plt.Circle((cx, cy), r,
@@ -136,6 +132,7 @@ def save_overlay(raw_image_np, heatmap, save_path, title="", n_peripheral_rings=
 
     for ax in axes:
         ax.axis("off")
+
     if title:
         fig.suptitle(title, fontweight="bold")
     plt.tight_layout()
@@ -162,6 +159,7 @@ def run_gradcam(model, class_names, dataset, resize, val_transform, raw_transfor
         heatmap = cam(input_tensor=input_tensor)[0]
 
         zones = attention_zones(heatmap, raw_np)
+
         if not zones:
             continue
 
@@ -179,6 +177,7 @@ def run_gradcam(model, class_names, dataset, resize, val_transform, raw_transfor
         # Save overlays for a few examples per class
         if overlay_output_dir:
             saved_count = sum(1 for r in class_stats[class_names[lbl]] if r.get("saved"))
+
             if saved_count < 3:
                 result["saved"] = True
                 save_filename = f"{class_names[lbl]}_{i}.png"
@@ -189,7 +188,7 @@ def run_gradcam(model, class_names, dataset, resize, val_transform, raw_transfor
 
 
 def print_tables(class_stats, class_names, label=""):
-    """Print percentage and density tables."""
+
     if label:
         print(f"\n{'=' * 64}")
         print(f"  {label}")
@@ -199,11 +198,14 @@ def print_tables(class_stats, class_names, label=""):
     print(f"\n{'=== Attention Distribution (% of FOV attention) ===':}")
     print(f"{'Class':<12}{'fundus_45':>12}{'periph_1':>10}{'periph_2':>10}{'periph_3':>10}{'artifact':>10}")
     print("-" * 64)
+    
     for cls in class_names:
         stats = class_stats[cls]
+
         if not stats:
             continue
         row = f"{cls:<12}"
+
         for key in zone_keys:
             val = np.mean([s.get(key, 0) for s in stats])
             row += f"{val:>10.1%}"
@@ -213,23 +215,26 @@ def print_tables(class_stats, class_names, label=""):
     print(f"\n{'=== Attention Density (1.0 = uniform, >1.0 = disproportionate) ===':}")
     print(f"{'Class':<12}{'fundus_45':>12}{'periph_1':>10}{'periph_2':>10}{'periph_3':>10}")
     print("-" * 54)
+
     for cls in class_names:
         stats = class_stats[cls]
+
         if not stats:
             continue
         row = f"{cls:<12}"
+
         for key in density_keys:
             val = np.mean([s.get(key, 0) for s in stats])
             row += f"{val:>10.2f}"
         print(row)
 
 def main():
-    # Define paths as variables
+    #define paths as variables
     model_file_path = "best_model_200deg.pth"
     data_root_path = r"C:\retinal-ai\uwf_images"
     overlay_output_dir = "enhanced_overlays"
     
-    # Ensure the overlay directory exists
+    #ensure the overlay directory exists
     os.makedirs(overlay_output_dir, exist_ok=True)
 
     model, class_names = load_model(model_file_path)
@@ -243,14 +248,14 @@ def main():
         transforms.ToTensor(),
     ])
 
-    # Run Gradcam on data
+    #run Gradcam on data
     trained_stats = run_gradcam(
         model, class_names, dataset, resize, val_transform, raw_transform,
         overlay_output_dir=overlay_output_dir, label="Trained model",
     )
     print_tables(trained_stats, class_names, label="TRAINED MODEL")
 
-    # SANITY CHECK
+    #sanity check
     print("\n\nRunning sanity check (randomized classifier)...")
     sanity_model, _ = load_model(model_file_path)
     nn.init.normal_(sanity_model.classifier[1].weight, mean=0.0, std=0.01)
@@ -268,6 +273,7 @@ def main():
     print(f"{'=' * 64}")
     print(f"{'Class':<12}{'Trained':>10}{'Random':>10}{'Diff':>10}")
     print("-" * 42)
+
     for cls in class_names:
         trained_d = np.mean([s.get("fundus_45_density", 0) for s in trained_stats[cls]])
         sanity_d = np.mean([s.get("fundus_45_density", 0) for s in sanity_stats[cls]])

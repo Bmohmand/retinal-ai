@@ -548,40 +548,37 @@ def batch_crop(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Step 2: Synthetic 45° crop from standardized UWF fundus images"
+        description="synthetic crop for retinal images"
     )
+    
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--input", type=str,
-                       help="Single standardized image path")
+                       help="input image")
     group.add_argument("--input_dir", type=str,
-                       help="Directory of standardized images (from 1_preprocess.py)")
+                       help="input folder")
 
     parser.add_argument("--output", type=str,
-                        help="Output path (single image mode)")
+                        help="output path")
     parser.add_argument("--output_dir", type=str, default="./cropped_45deg",
-                        help="Output directory (batch mode, default: ./cropped_45deg)")
-
+                        help="output folder")
     parser.add_argument("--debug", action="store_true",
-                        help="Save debug overlays showing OD, macula, and crop box")
-
+                        help="save debug images")
     parser.add_argument("--center_on", type=str, default="macula",
                         choices=["macula", "optic_disc", "fov_center"],
-                        help="Anatomical anchor for the crop center (default: macula)")
+                        help="what to center crop on")
     parser.add_argument("--uwf_fov", type=float, default=200.0,
-                        help="UWF FOV in degrees (Optos=200, Clarus=133)")
+                        help="source fov degrees")
     parser.add_argument("--target_fov", type=float, default=45.0,
-                        help="Target crop FOV in degrees (default: 45)")
+                        help="target fov degrees")
     parser.add_argument("--output_size", type=int, default=512,
-                        help="Output crop size in pixels, square (default: 512)")
+                        help="output size")
     parser.add_argument("--od_channel", type=str, default="red",
                         choices=["red", "green"],
-                        help="Color channel for OD detection (default: red)")
+                        help="channel for od detection")
     parser.add_argument("--jpeg_quality", type=int, default=95,
-                        help="JPEG output quality, 0-100 (default: 95)")
+                        help="jpeg quality")
     parser.add_argument("--no_circular_mask", action="store_true",
-                        help="Output square crops instead of circular. "
-                             "Not recommended: square crops capture ~63° along "
-                             "diagonals, leaking extra peripheral information.")
+                        help="use square crops instead of circular")
 
     args = parser.parse_args()
 

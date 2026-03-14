@@ -15,16 +15,16 @@ def load_features(dir):
     
     feature_dir = Path(dir)
 
-    # Color features
+    #color features
     df = pd.read_csv(feature_dir / "features.csv")
     y = df["label"].values
     X_color = df.drop(columns=["filename", "label"]).values
 
-    # HOG features
+    #HOG features
     hog_df = np.load(feature_dir / "hog_features.npz")
     X_hog = hog_df["features"]
 
-    # Combine and scale
+    #combine and scale
     X = np.hstack((X_color, X_hog))
 
     return X, y
@@ -32,7 +32,7 @@ def load_features(dir):
 
 def train_model(X, y):
 
-    # Scale the features using StandardScaler
+    #scale the features using StandardScaler
     scaler = StandardScaler()
     rf_classifier = RandomForestClassifier(n_estimators=300, 
                                            class_weight="balanced", 
@@ -53,20 +53,20 @@ def train_model(X, y):
         y_score[test_idx] = pipeline.predict_proba(X[test_idx])
 
 
-    # Report data
+    #report data
     accuracy = accuracy_score(y, y_pred)
 
     print(f"Accuracy: {accuracy}")
     print("\n Classification Report")
     print(classification_report(y, y_pred, zero_division=0))
 
-    # ROC AUC Plotting
+    #ROC AUC Plotting
     plt.figure(figsize=(10, 7))
 
-    # Loop through each class to calculate and plot ROC/AUC (One-vs-Rest)
+    #loop through each class to calculate and plot ROC/AUC (One-vs-Rest)
     classes = np.unique(y)
     for i, class_label in enumerate(classes):
-        # Binarize labels for the current class
+        #binarize labels for the current class
         y_bin = (y == class_label).astype(int)
         fpr, tpr, _ = roc_curve(y_bin, y_score[:, i])
         roc_auc = auc(fpr, tpr)

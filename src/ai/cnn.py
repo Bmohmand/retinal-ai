@@ -16,7 +16,6 @@ from sklearn.preprocessing import label_binarize
 
 # Define the resize transform for preloading images
 resize = transforms.Resize((224, 224))
-
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # model = models.efficientnet_b0(weights = models.EfficientNet_B0_Weights.IMAGENET1K_V1)
@@ -24,7 +23,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # Model/Training Config
 @dataclass
 class TrainingConfig:
-    """Configuration for the training script."""
+
     data_dir: Path = Path(r"C:\retinal-ai\uwf_images")
     name: str = "200deg"
     n_splits: int = 5
@@ -35,45 +34,27 @@ class TrainingConfig:
     learning_rate: float = 1e-3 
     patience: int = 8 
 
-
-# Create Model
+#create Model
 def create_model():
-    """Creates an EfficientNet-B0 model with a custom classifier head."""
+
     model = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.IMAGENET1K_V1)
 
-    # Freeze the first 6 out of 8 feature blocks
+    #freeze the first 6 out of 8 feature blocks
     for i in range(6):
         for param in model.features[i].parameters():
             param.requires_grad = False
 
-    # Replace the classifier head
+    #replace the classifier head
     updated_head = nn.Sequential(
         nn.Dropout(p=0.3),
         nn.Linear(1280, 7)
     )
     model.classifier = updated_head
+    
     return model
 
-
-# class TransformedSubset(torch.utils.data.Dataset):
-#     """
-#     A wrapper for a PyTorch Subset that allows applying a specific transform.
-#     """
-#     def __init__(self, subset, transform=None):
-#         self.subset = subset
-#         self.transform = transform
-
-#     def __getitem__(self, index):
-#         x, y = self.subset[index]
-#         if self.transform:
-#             x = self.transform(x)
-#         return x, y
-
-#     def __len__(self):
-#         return len(self.subset)
-
-
 class InMemoryDataset(torch.utils.data.Dataset):
+
     def __init__(self, images, labels, transform=None):
         self.images = images
         self.labels = labels
@@ -90,7 +71,6 @@ class InMemoryDataset(torch.utils.data.Dataset):
 
 # Apply Data Augmentation
 def get_transforms():
-    """Defines the training and validation transforms."""
     train_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
@@ -106,11 +86,10 @@ def get_transforms():
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # ImageNet Normalization
     ])
+    
     return train_transform, val_transform
 
-
 def get_dataloaders(all_images, all_labels, train_idx, val_idx, cfg: TrainingConfig):
-    """Creates training and validation dataloaders for a given fold."""
     train_transform, val_transform = get_transforms()
 
     train_imgs = [all_images[i] for i in train_idx]
@@ -123,6 +102,7 @@ def get_dataloaders(all_images, all_labels, train_idx, val_idx, cfg: TrainingCon
 
     train_loader = DataLoader(train_set, batch_size=cfg.batch_size, shuffle=True, num_workers=cfg.num_workers, pin_memory=True)
     val_loader = DataLoader(val_set, batch_size=cfg.batch_size, shuffle=False, num_workers=cfg.num_workers, pin_memory=True)
+
     return train_loader, val_loader
 
 
@@ -147,7 +127,6 @@ def train_epoch(model, loader, criterion, optimizer):
         total += labels.size(0)
 
     return curr_loss / total, correct / total
-
 
 @torch.no_grad()
 def evaluate(model, loader):
@@ -178,7 +157,7 @@ def quick_validate(model, loader):
 
     return np.array(all_labels), np.array(all_preds)
 
-# Optimize Learning rate with transfer learning architecture
+#optimize Learning rate with transfer learning architecture
 def build_scheduler(optimizer, epochs, warmup_epochs=3):
     warmup = optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, end_factor=1.0, total_iters=warmup_epochs,
@@ -190,16 +169,14 @@ def build_scheduler(optimizer, epochs, warmup_epochs=3):
         optimizer, schedulers=[warmup, cosine], milestones=[warmup_epochs],
     )
 
-# Define Training runs
+#define Training runs
 def run_fold(fold: int, train_loader: DataLoader, val_loader: DataLoader, cfg: TrainingConfig):
-    """
-    Initializes a model and runs the training and validation for a single fold.
-    """
+
     print(f"\n===== Fold {fold + 1} =====")
     print(f"Train set size: {len(train_loader.dataset)}")
     print(f"Validation set size: {len(val_loader.dataset)}")
 
-    # For each fold, re-initialize the model, optimizer, etc.
+    #for each fold, re-initialize the model, optimizer, etc.
     model = create_model().to(DEVICE)
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=cfg.learning_rate)
@@ -219,13 +196,15 @@ def run_fold(fold: int, train_loader: DataLoader, val_loader: DataLoader, cfg: T
 
         lr = optimizer.param_groups[0]["lr"]
 
-        # Early stopping
+        #early stopping
         if val_f1 > best_f1:
             best_f1 = val_f1
             best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
             patience_counter = 0
+
         else:
             patience_counter += 1
+
             if patience_counter >= cfg.patience:
                 print(f"  Early stopping at epoch {epoch+1}")
                 break
@@ -240,7 +219,7 @@ def run_fold(fold: int, train_loader: DataLoader, val_loader: DataLoader, cfg: T
 
 def main():
     cfg = TrainingConfig()
-    # Set Seed
+    #set Seed
     print(f"Using device: {DEVICE}") 
     torch.manual_seed(cfg.seed) 
     np.random.seed(cfg.seed)
@@ -249,7 +228,7 @@ def main():
     num_classes = len(full_dataset.classes)
     print(f"Found {len(full_dataset)} images belonging to {num_classes} classes.")
      
-    # Load images into memory for speed
+    #load images into memory for speed
     print("Preloading images into memory...")
     preloaded_images = []
     preloaded_labels = []
@@ -259,7 +238,7 @@ def main():
         preloaded_images.append(img)
         preloaded_labels.append(label)
 
-    # Run KFold validation
+    #run KFold validation
     skf = StratifiedKFold(n_splits=cfg.n_splits, shuffle=True, random_state=cfg.seed)
     targets = np.array(full_dataset.targets)
 
@@ -270,34 +249,36 @@ def main():
         )
 
         fold_results = run_fold(fold, train_loader, val_loader, cfg) 
+
         if fold_results:
             all_fold_results.append(fold_results)
 
     print("\nCross-validation finished.")
     
-    # Display and Analyze Results
+    #Display and Analyze Results
 
-    # Concatenate all fold results
+    #concatenate all fold results
     all_labels = np.concatenate([r["labels"] for r in all_fold_results])
     all_preds = np.concatenate([r["preds"] for r in all_fold_results])
     all_probs = np.concatenate([r["probs"] for r in all_fold_results])
 
-    # Classification report
+    #classification report
     print(f"Accuracy: {accuracy_score(all_labels, all_preds):.4f}")
     print(f"F1 (macro): {f1_score(all_labels, all_preds, average='macro'):.4f}\n")
     report = classification_report(all_labels, all_preds, target_names=full_dataset.classes, zero_division=0)
     print(report)
+
     with open(f"classification_report_{cfg.name}.txt", "w") as f:
         f.write(f"Accuracy: {accuracy_score(all_labels, all_preds):.4f}\n")
         f.write(f"F1 (macro): {f1_score(all_labels, all_preds, average='macro'):.4f}\n\n")
         f.write(report)
 
-
-    # ROC curves
+    #ROC curves
     classes = np.arange(len(full_dataset.classes))
     y_bin = label_binarize(all_labels, classes=classes)
 
     plt.figure(figsize=(10, 7))
+
     for i, name in enumerate(full_dataset.classes):
         fpr, tpr, _ = roc_curve(y_bin[:, i], all_probs[:, i])
         plt.plot(fpr, tpr, label=f"{name} (AUC = {auc(fpr, tpr):.2f})", linewidth=2)

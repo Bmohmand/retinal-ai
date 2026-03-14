@@ -15,16 +15,16 @@ def load_features(dir):
     
     feature_dir = Path(dir)
 
-    # Color features
+    #color features
     df = pd.read_csv(feature_dir / "features.csv")
     y = df["label"].values
     X_color = df.drop(columns=["filename", "label"]).values
 
-    # HOG features
+    #HOG features
     hog_df = np.load(feature_dir / "hog_features.npz")
     X_hog = hog_df["features"]
 
-    # Combine and scale
+    #combine and scale
     X = np.hstack((X_color, X_hog))
 
     return X, y
@@ -57,7 +57,7 @@ def train_model(X, y):
     print("\n Classification Report")
     print(classification_report(y, y_pred, zero_division=0))
 
-    # ROC AUC Plotting
+    #ROC AUC Plotting
     plt.figure(figsize=(10, 7))
 
     classes = np.unique(y)
