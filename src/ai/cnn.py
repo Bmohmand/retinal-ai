@@ -3,13 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
+import seaborn as sns
 from dataclasses import dataclass
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
-from sklearn.metrics import accuracy_score, f1_score, classification_report, auc, roc_curve
+from sklearn.metrics import accuracy_score, f1_score, classification_report, auc, roc_curve, confusion_matrix
 from torchvision import models, datasets, transforms
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import label_binarize
@@ -273,7 +274,25 @@ def main():
         f.write(f"F1 (macro): {f1_score(all_labels, all_preds, average='macro'):.4f}\n\n")
         f.write(report)
 
+<<<<<<< HEAD
     #ROC curves
+=======
+    # Confusion Matrix
+    cm = confusion_matrix(all_labels, all_preds)
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=full_dataset.classes, yticklabels=full_dataset.classes)
+    plt.title(f"Confusion Matrix — EfficientNet-B0 {cfg.name} (Cross-Validated)", fontsize=16)
+    plt.xlabel("Predicted Label", fontsize=14)
+    plt.ylabel("True Label", fontsize=14)
+    plt.xticks(rotation=45, ha="right", fontsize=12)
+    plt.yticks(rotation=0, fontsize=12)
+    plt.tight_layout()
+    plt.savefig(f"confusion_matrix_{cfg.name}.png", dpi=150)
+
+
+    # ROC curves
+>>>>>>> b64215d06d2461b5f89c3fc6868f26e8734c52d1
     classes = np.arange(len(full_dataset.classes))
     y_bin = label_binarize(all_labels, classes=classes)
 
