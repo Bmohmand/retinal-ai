@@ -2,14 +2,7 @@
 
 A lightweight retinal imaging project comparing 200-degree ultra-widefield views vs 45-degree crops for multi-class disease classification.
 
-This repo is organized so you can quickly find:
-- data prep code
-- model training and analysis scripts
-- extracted features
-- saved model weights
-- experiment outputs
-
-## Project map (where everything is)
+## Project map
 
 ### Top level
 - `requirements.txt`: Python dependencies
@@ -52,6 +45,7 @@ This repo is organized so you can quickly find:
 Use this order:
 1. `src/data_prep/preprocess.py`
 2. `src/data_prep/synthetic_crop.py`
+2. `src/data_prep/feature_extract.py`
 3. `src/scripts/logistic.py` and `src/scripts/randomforest.py`
 4. `src/ai/cnn.py`
 5. `src/ai/gradcam.py` and `src/ai/occlusion.py`
