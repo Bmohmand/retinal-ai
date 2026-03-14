@@ -1,19 +1,3 @@
-"""
-Step 2: Synthetic 45° Crop from Standardized UWF Images
-========================================================
-Takes preprocessed/standardized UWF fundus images (output of 1_preprocess.py)
-and produces synthetic 45-degree field-of-view crops, simulating a standard
-fundus camera capture.
-
-Pipeline per image:
-  1. Build FOV mask (for the standardized image)
-  2. Detect the optic disc (with peripheral exclusion + candidate scoring)
-  3. Estimate the macula position (temporal to the disc)
-  4. Extract a square crop representing the target FOV
-
-Output: A directory of 45° crops + metadata JSON with detection coordinates.
-"""
-
 import cv2
 import numpy as np
 import argparse

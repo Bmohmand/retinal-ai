@@ -20,7 +20,6 @@ HOG_RESIZE = 256
 MASK_THRESHOLD = 15
 MORPH_KERNEL = 15
 
-
 #mask
 def build_fov_mask(image: np.ndarray) -> np.ndarray:
     #binary mask of retinal pixels for computing histograms only over actual retinal content.
@@ -128,7 +127,6 @@ def load_labels_from_dir(label_dir: str) -> Dict[str, str]:
             if img.suffix.lower() in IMAGE_EXTENSIONS:
                 labels[img.name] = class_dir.name
     return labels
-
 
 #extract
 def extract_all(
@@ -253,6 +251,7 @@ def extract_all(
         "label_counts": {},
         "failures": failures,
     }
+
     if labels:
 
         for feat in all_features:
@@ -309,7 +308,6 @@ def main():
         print(f"Loaded {len(labels)} labels from directory structure")
 
     extract_all(args.input_dir, args.output_dir, labels, args.skip_hog)
-
 
 if __name__ == "__main__":
     main()
