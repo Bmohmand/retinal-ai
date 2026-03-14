@@ -1,22 +1,3 @@
-"""
-Step 3: Feature Extraction for SVM Baseline
-=============================================
-Extracts HOG descriptors and color intensity histograms from fundus images
-for training an SVM baseline classifier (as described in the project proposal).
-
-Feature groups:
-  A. Color intensity histograms — per-channel in RGB + HSV  (192 features)
-  B. HOG descriptors           — gradient texture patterns   (~8,100 features)
-
-Run this TWICE: once on the full 200° standardized images, once on the 45°
-crops. Then train identical SVMs on each to compare field-of-view performance.
-
-Output:
-  - features.csv      — Color histograms (compact, human-readable)
-  - hog_features.npz  — HOG vectors (high-dimensional, compressed)
-  - extraction_report.json — Summary stats
-"""
-
 import cv2
 import numpy as np
 import argparse
@@ -30,35 +11,19 @@ import pandas as pd
 from skimage.feature import hog as skimage_hog
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"}
-
-
-# ──────────────────────────────────────────────
-# Configuration
-# ──────────────────────────────────────────────
-
-# Color histograms
-HIST_BINS = 32          # Bins per channel (32 × 6 channels = 192 features)
-
-# HOG parameters
+#Config
+HIST_BINS = 32
 HOG_ORIENTATIONS = 9
 HOG_PIXELS_PER_CELL = (16, 16)
 HOG_CELLS_PER_BLOCK = (2, 2)
-HOG_RESIZE = 256        # Resize before HOG to standardize vector length
-
-# Mask threshold for separating retina from black background
+HOG_RESIZE = 256    
 MASK_THRESHOLD = 15
 MORPH_KERNEL = 15
 
 
-# ──────────────────────────────────────────────
-# FOV Mask
-# ──────────────────────────────────────────────
-
+#mask
 def build_fov_mask(image: np.ndarray) -> np.ndarray:
-    """
-    Binary mask of retinal pixels (excludes black corners/background).
-    Used to compute histograms only over actual retinal content.
-    """
+    #binary mask of retinal pixels for computing histograms only over actual retinal content.
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     _, binary = cv2.threshold(gray, MASK_THRESHOLD, 255, cv2.THRESH_BINARY)
     kernel = cv2.getStructuringElement(
@@ -66,60 +31,38 @@ def build_fov_mask(image: np.ndarray) -> np.ndarray:
     )
     binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
     binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, kernel)
+
     return binary
 
-
-# ──────────────────────────────────────────────
-# Feature Group A: Color Intensity Histograms
-# ──────────────────────────────────────────────
-
+#group A
 def extract_color_histograms(
     image: np.ndarray, mask: np.ndarray
 ) -> Dict[str, float]:
-    """
-    Per-channel normalized histograms in BGR and HSV color spaces.
-
-    Captures pigmentation variance across tumor types:
-      - Melanoma: dark brown/gray intensity profile
-      - Retinoblastoma: bright white/yellow peak
-      - Hemangioma: strong red-channel skew
-      - Normal: uniform red-orange distribution
-
-    Returns dict of 192 features (32 bins × 6 channels).
-    """
+    
+    #Captures pigmentation variance across the tumor types and returns dict.
     features = {}
-
-    # BGR histograms
     for i, name in enumerate(["blue", "green", "red"]):
         hist = cv2.calcHist([image], [i], mask, [HIST_BINS], [0, 256])
         hist = hist.flatten() / (hist.sum() + 1e-8)
+
         for b in range(HIST_BINS):
             features[f"hist_{name}_bin{b:02d}"] = float(hist[b])
 
-    # HSV histograms
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
     for i, (name, upper) in enumerate([("hue", 180), ("sat", 256), ("val", 256)]):
         hist = cv2.calcHist([hsv], [i], mask, [HIST_BINS], [0, upper])
         hist = hist.flatten() / (hist.sum() + 1e-8)
+
         for b in range(HIST_BINS):
             features[f"hist_{name}_bin{b:02d}"] = float(hist[b])
 
     return features
 
-
-# ──────────────────────────────────────────────
-# Feature Group B: HOG Descriptors
-# ──────────────────────────────────────────────
-
+#Group B
 def extract_hog_features(image: np.ndarray) -> Optional[np.ndarray]:
-    """
-    HOG descriptor on resized grayscale image.
+    #captures the texture and edge patterns and returns 1D float32 array
 
-    Captures texture and edge patterns — tumor boundaries, vessel
-    architecture, calcification edges.
-
-    Returns 1D float32 array (~8,100 features at 256x256 with default params).
-    """
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     resized = cv2.resize(gray, (HOG_RESIZE, HOG_RESIZE))
 
@@ -133,17 +76,12 @@ def extract_hog_features(image: np.ndarray) -> Optional[np.ndarray]:
 
     return hog_vector.astype(np.float32)
 
-
-# ──────────────────────────────────────────────
-# Label Loading
-# ──────────────────────────────────────────────
-
+#loading the labels
 def load_labels_from_csv(csv_path: str) -> Dict[str, str]:
-    """
-    Load labels from CSV. Flexibly matches column names.
-    Expected: filename/image column + label/class/diagnosis column.
-    """
+    #Loads labels from CSV and matches column names.
+
     labels = {}
+
     with open(csv_path, "r") as f:
         header_line = f.readline()
         delimiter = "\t" if "\t" in header_line else ","
@@ -151,19 +89,24 @@ def load_labels_from_csv(csv_path: str) -> Dict[str, str]:
         header_lower = [h.strip().lower().strip('"') for h in header]
 
         file_col = 0
+
         for candidate in ["filename", "file", "image", "image_name", "name"]:
+
             if candidate in header_lower:
                 file_col = header_lower.index(candidate)
                 break
 
         label_col = 1
+
         for candidate in ["label", "class", "category", "diagnosis", "target"]:
+
             if candidate in header_lower:
                 label_col = header_lower.index(candidate)
                 break
 
         for line in f:
             parts = line.strip().split(delimiter)
+
             if len(parts) > max(file_col, label_col):
                 fname = parts[file_col].strip().strip('"')
                 label = parts[label_col].strip().strip('"')
@@ -173,34 +116,36 @@ def load_labels_from_csv(csv_path: str) -> Dict[str, str]:
 
 
 def load_labels_from_dir(label_dir: str) -> Dict[str, str]:
-    """Load labels from directory structure: label_dir/class_name/image.jpg"""
+    #Load labels from directory structure (image.jpg)
     labels = {}
     for class_dir in sorted(Path(label_dir).iterdir()):
+
         if not class_dir.is_dir():
             continue
+
         for img in sorted(class_dir.iterdir()):
+
             if img.suffix.lower() in IMAGE_EXTENSIONS:
                 labels[img.name] = class_dir.name
     return labels
 
 
-# ──────────────────────────────────────────────
-# Main Extraction
-# ──────────────────────────────────────────────
-
+#extract
 def extract_all(
     input_dir: str,
     output_dir: str,
     labels: Optional[Dict[str, str]] = None,
     skip_hog: bool = False,
 ):
-    """Extract features from all images and save to disk."""
+    
+    #extract features from all images, then save disk.
     os.makedirs(output_dir, exist_ok=True)
     input_path = Path(input_dir)
 
     print(f"Scanning for images in {input_dir}...")
     files = sorted(
         f for f in input_path.rglob("*")
+
         if f.is_file() and f.suffix.lower() in IMAGE_EXTENSIONS
     )
 
@@ -221,18 +166,18 @@ def extract_all(
 
         try:
             image = cv2.imread(str(fpath))
+
             if image is None:
                 raise FileNotFoundError(f"Could not read: {fpath}")
 
             mask = build_fov_mask(image)
 
-            # Color histograms
+            #color the histograms
             features = extract_color_histograms(image, mask)
 
-            # Label
             if labels:
-                # Try relative path first, then basename
                 lbl = labels.get(str(rel_path)) or labels.get(filename)
+
                 if lbl:
                     features["label"] = lbl
 
@@ -242,38 +187,43 @@ def extract_all(
             if feature_names is None:
                 feature_names = [k for k in features if k != "label"]
 
-            # HOG
+            
             if not skip_hog:
                 hog_vec = extract_hog_features(image)
+
                 if hog_vec is not None:
                     all_hog.append(hog_vec)
-
             print("OK")
 
         except Exception as e:
             print(f"FAIL — {e}")
             failures.append({"filename": str(rel_path), "error": str(e)})
 
-    # ── Save color histograms to CSV ──
+    #Save histograms
     csv_path = os.path.join(output_dir, "features.csv")
+
     if pd is not None:
         df = pd.DataFrame(all_features)
         df.insert(0, "filename", all_filenames)
         df.to_csv(csv_path, index=False)
+
     else:
         has_labels = labels is not None
         cols = ["filename"] + feature_names + (["label"] if has_labels else [])
+
         with open(csv_path, "w") as f:
             f.write(",".join(cols) + "\n")
+
             for fname, feat in zip(all_filenames, all_features):
                 row = [fname] + [str(feat.get(k, 0)) for k in feature_names]
+
                 if has_labels:
                     row.append(feat.get("label", ""))
                 f.write(",".join(row) + "\n")
 
     print(f"\nColor histograms saved to {csv_path}  ({len(feature_names)} features)")
 
-    # ── Save HOG to .npz ──
+    #save the report
     if all_hog and not skip_hog:
         hog_path = os.path.join(output_dir, "hog_features.npz")
         hog_matrix = np.array(all_hog)
@@ -282,9 +232,9 @@ def extract_all(
             features=hog_matrix,
             filenames=np.array(all_filenames[:len(all_hog)]),
         )
+
         print(f"HOG features saved to {hog_path}  ({hog_matrix.shape[1]} features, shape: {hog_matrix.shape})")
 
-    # ── Save report ──
     report = {
         "input_dir": input_dir,
         "total_images": len(files),
@@ -298,16 +248,19 @@ def extract_all(
         "labels_provided": labels is not None,
         "unique_labels": sorted(set(
             f.get("label", "") for f in all_features if "label" in f
-        )) if labels else [],
+        )) 
+        if labels else [],
         "label_counts": {},
         "failures": failures,
     }
     if labels:
+
         for feat in all_features:
             lbl = feat.get("label", "unknown")
             report["label_counts"][lbl] = report["label_counts"].get(lbl, 0) + 1
 
     report_path = os.path.join(output_dir, "extraction_report.json")
+
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
 
@@ -317,32 +270,27 @@ def extract_all(
           + (f" + {len(all_hog[0])} HOG features" if all_hog else "")
           + " per image.")
 
-
-# ──────────────────────────────────────────────
-# CLI
-# ──────────────────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(
-        description="Step 3: Extract HOG + color histogram features for SVM baseline"
+        description="extract HOG + color histogram features for SVM baseline"
     )
     parser.add_argument("--input_dir", type=str, required=True,
-                        help="Image directory (standardized or cropped_45deg)")
+                        help="path to images")
     parser.add_argument("--output_dir", type=str, default="./features",
-                        help="Output directory (default: ./features)")
+                        help="where to save output")
 
     label_group = parser.add_mutually_exclusive_group()
     label_group.add_argument("--label_csv", type=str,
-                             help="CSV with filename + label columns")
+                             help="labels csv")
     label_group.add_argument("--label_dir", type=str,
-                             help="Directory with class_name/image.jpg structure")
+                             help="labels folder")
 
     parser.add_argument("--skip_hog", action="store_true",
-                        help="Skip HOG extraction (faster)")
+                        help="skip hog")
     parser.add_argument("--hist_bins", type=int, default=32,
-                        help="Bins per histogram channel (default: 32)")
+                        help="histogram bins")
     parser.add_argument("--hog_resize", type=int, default=256,
-                        help="Image size for HOG computation (default: 256)")
+                        help="resize before HOG")
 
     args = parser.parse_args()
 
@@ -351,9 +299,11 @@ def main():
     HOG_RESIZE = args.hog_resize
 
     labels = None
+
     if args.label_csv:
         labels = load_labels_from_csv(args.label_csv)
         print(f"Loaded {len(labels)} labels from {args.label_csv}")
+        
     elif args.label_dir:
         labels = load_labels_from_dir(args.label_dir)
         print(f"Loaded {len(labels)} labels from directory structure")
